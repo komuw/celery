@@ -2,7 +2,9 @@ from __future__ import absolute_import, unicode_literals
 
 import os
 import json
+import time
 import asyncio
+import inspect
 
 from .base import BasePool
 
@@ -21,11 +23,11 @@ class KomuTaskPool(BasePool):
 
     def __init__(self, *args, **kwargs):
         super(KomuTaskPool, self).__init__(*args, **kwargs)
-        self.limit = 1
+        self.limit = 15
 
     def _get_info(self):
         return {
-            "max-concurrency": 1,
+            "max-concurrency": self.limit,
             "processes": [os.getpid()],
             "max-tasks-per-child": None,
             "put-guarded-by-semaphore": True,
@@ -44,34 +46,92 @@ class KomuTaskPool(BasePool):
         task_encoding = args[1][5]
 
         task = self.app.tasks[my_task_name]
+
         print("\n celery.concurrency.komupool.KomuTaskPool.on_apply end \n")
-        komu_apply_target(task=task, task_uuid=task_uuid, task_body=task_body)
+        if hasattr(task, "this_is_async_task"):
+            # inspect.iscoroutine(task) does not work
+            asyncio.run(
+                Async_komu_apply_target(
+                    task=task, my_task_name=my_task_name, task_uuid=task_uuid, task_body=task_body
+                ),
+                debug=True,
+            )
+        else:
+            SYNC_komu_apply_target(
+                task=task, my_task_name=my_task_name, task_uuid=task_uuid, task_body=task_body
+            )
 
 
-def komu_apply_target(task, task_uuid, task_body):
+def SYNC_komu_apply_target(task, my_task_name, task_uuid, task_body):
     """
     Apply function within pool context.
     
     Taken from: https://github.com/celery/celery/blob/master/celery/concurrency/
     """
     print(
-        "\n celery.concurrency.komupool.komu_apply_target start. task_uuid={0} \n".format(task_uuid)
+        "\n celery.concurrency.komupool.komu_apply_target start. task_uuid={0}. my_task_name={1} \n".format(
+            task_uuid, my_task_name
+        )
     )
 
     try:
         args, kwargs, embed = json.loads(task_body)
+
+        start = time.monotonic()
         task(*args, **kwargs)
-        print("START")
+        end = time.monotonic()
+
         R = None
         I = None
-        T = 6.400_004_826
+        T = end - start
         Rstr = None
         print(
-            "\n celery.concurrency.komupool.komu_apply_target end. task_uuid={0} \n".format(
-                task_uuid
+            "\n celery.concurrency.komupool.komu_apply_target end. task_uuid={0}. my_task_name={1} \n".format(
+                task_uuid, my_task_name
             )
         )
         return (1, R, T) if I else (0, Rstr, T)
     except Exception as e:
-        print("\n celery.concurrency.komupool.komu_apply_target end. error={0} \n".format(str(e)))
+        print(
+            "\n celery.concurrency.komupool.komu_apply_target end. task_uuid={0}. my_task_name={1}. error={2} \n".format(
+                task_uuid, my_task_name, str(e)
+            )
+        )
+        raise e
+
+
+async def Async_komu_apply_target(task, my_task_name, task_uuid, task_body):
+    """
+    Apply function within pool context.
+
+    Taken from: https://github.com/celery/celery/blob/master/celery/concurrency/
+    """
+    print(
+        "\n celery.concurrency.komupool.komu_apply_target start. task_uuid={0}. my_task_name={1} \n".format(
+            task_uuid, my_task_name
+        )
+    )
+    try:
+        args, kwargs, embed = json.loads(task_body)
+
+        start = time.monotonic()
+        await task(*args, **kwargs)
+        end = time.monotonic()
+
+        R = None
+        I = None
+        T = end - start
+        Rstr = None
+        print(
+            "\n celery.concurrency.komupool.komu_apply_target end. task_uuid={0}. my_task_name={1} \n".format(
+                task_uuid, my_task_name
+            )
+        )
+        return (1, R, T) if I else (0, Rstr, T)
+    except Exception as e:
+        print(
+            "\n celery.concurrency.komupool.komu_apply_target end. task_uuid={0}. my_task_name={1}. error={1} \n".format(
+                task_uuid, my_task_name, str(e)
+            )
+        )
         raise e

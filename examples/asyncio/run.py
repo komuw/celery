@@ -23,22 +23,7 @@ def sync_req(url):
     print("res: ", res)
 
 
-# @celobj.task(name="Async_req")
-# def Async_req(url):
-#     import asyncio
-#     import aiohttp
-
-#     async def async_main():
-#         async with aiohttp.ClientSession() as session:
-#             async with session.get(url) as resp:
-#                 print("resp statsus: ", resp.status)
-#                 res_text = await resp.text()
-#                 print(res_text[:50])
-
-#     asyncio.run(async_main(), debug=True)
-
-
-@celobj.task(name="Async_req")
+@celobj.task(name="Async_req", this_is_async_task=True)
 async def Async_req(url):
     import asyncio
     import aiohttp
@@ -51,14 +36,10 @@ async def Async_req(url):
 
 
 if __name__ == "__main__":
-    # import pdb
-
-    # pdb.set_trace()
-    for _ in range(0, 10):
-        sync_req.delay(url="https://httpbin.org/delay/5")
-        print("!!! SYNC messages enqueued !!!")
+    sync_req.delay(url="https://httpbin.org/delay/5")
+    print("!!! SYNC messages enqueued !!!")
 
     # for _ in range(0, 10):
-    # Async_req.delay(url="https://httpbin.org/delay/10")
-    # print("!!! Async messages enqueued !!!")
+    Async_req.delay(url="https://httpbin.org/delay/7")
+    print("!!! Async messages enqueued !!!")
 
