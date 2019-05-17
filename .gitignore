@@ -30,3 +30,6 @@ cover/
 htmlcov/
 coverage.xml
 test.db
+
+# vscode editor
+.vscode/

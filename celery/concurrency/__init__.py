@@ -15,6 +15,8 @@ ALIASES = {
     'gevent': 'celery.concurrency.gevent:TaskPool',
     'solo': 'celery.concurrency.solo:TaskPool',
     'processes': 'celery.concurrency.prefork:TaskPool',  # XXX compat alias
+
+    "komupool": "celery.concurrency.komupool:KomuTaskPool",
 }
 
 
